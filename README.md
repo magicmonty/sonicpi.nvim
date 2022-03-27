@@ -67,4 +67,9 @@ Currently the following snippets are available:
 - `echo` -> makes a `with_fx` block with echo settings
 - `reverb` -> makes a `with_fx` block with reverb settings
 
+## Usage
+
+You need to create a new file with a `.sonicpi` extension and open it in neovim.
+Then you can use the LSP and completion engine including the snippets.
+
 [nvim-cmp]: https://github.com/hrs7th/nvim-cmp
