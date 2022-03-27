@@ -1,52 +1,6 @@
-local lexer = require('cmp-sonicpi.lexer')
-
 local M = {}
 
-local synth_regex = '\\v(use_synth|synth|with_synth|set_current_synth)\\s+'
-local in_synth_context_regex = synth_regex .. ':\\w+\\s*,\\s*[^,]*'
-
-M.is_in_synth_context = function(line)
-  return vim.regex(in_synth_context_regex):match_str(line) ~= nil
-end
-
-M.needs_synth = function(line)
-  return vim.regex(synth_regex):match_str(line) ~= nil
-end
-
-M.needs_synth_param = function(line)
-  return vim.regex(synth_regex .. ':\\w+\\s*.*,\\s*[^,:]*$'):match_str(line) ~= nil
-end
-
-local sample_regex =
-  '\\v(sample|use_sample_bpm|with_sample_bpm|sample_duration|sample_buffer|sample_info|load_sample|sample_loaded\\?)\\s+'
-local in_sample_context_regex = sample_regex .. ':\\w+\\s*,\\s*[^,]*'
-
-M.is_in_sample_context = function(line)
-  return vim.regex(in_sample_context_regex):match_str(line) ~= nil
-end
-
-M.needs_sample = function(line)
-  return vim.regex(sample_regex):match_str(line) ~= nil
-end
-
-M.needs_sample_param = function(line)
-  return vim.regex(sample_regex .. ':\\w+\\s*.*,\\s*[^,:]*$'):match_str(line) ~= nil
-end
-
-local function oscapture(cmd, raw)
-  local f = assert(io.popen(cmd, 'r'))
-  local s = assert(f:read('*a'))
-  f:close()
-  if raw then
-    return s
-  end
-  s = string.gsub(s, '^%s+', '')
-  s = string.gsub(s, '%s+$', '')
-  s = string.gsub(s, '[\n\r]+', ' ')
-  return s
-end
-
-local function length(tab)
+M.length = function(tab)
   local count = 0
   for _ in pairs(tab) do
     count = count + 1
@@ -54,7 +8,7 @@ local function length(tab)
   return count
 end
 
-local function has_value(tab, val)
+M.has_value = function(tab, val)
   for _, v in ipairs(tab) do
     if v == val then
       return true
@@ -268,7 +222,7 @@ local function clean_classes(classes)
         doc = '# ' .. class.members.name .. '\n\n' .. doc
       end
 
-      if has_value(class.base_classes, 'SonicPiSynth') and not has_value(class.base_classes, 'StudioInfo') then
+      if M.has_value(class.base_classes, 'SonicPiSynth') and not M.has_value(class.base_classes, 'StudioInfo') then
         cleaned_results[':' .. class.members.synth_name] = {
           args = new_args,
           doc = vim.trim(doc),
@@ -357,23 +311,25 @@ local function read_samples(lines)
   return samples
 end
 
-local function read_samples_from_ruby()
-  local command =
-    'echo \'require "/opt/sonic-pi/app/server/ruby/lib/sonicpi/synths/synthinfo.rb"; puts SonicPi::Synths::BaseInfo.all_samples\' | ruby'
-  local output = oscapture(command, true)
-  return split(output, '\n')
-end
+M.read_synths_and_sample_names = function(server_dir)
+  if not server_dir then
+    vim.notify('No server directory specified', 'error')
+    return {}
+  end
+  if vim.fn.isdirectory(server_dir) == 0 then
+    vim.notify('Server directory "' .. server_dir .. '" does not exist', 'error')
+    return {}
+  end
 
-M.read_synths_from_file = function()
   local lines = {}
-  for line in io.lines('/opt/sonic-pi/app/server/ruby/lib/sonicpi/synths/synthinfo.rb') do
+  for line in io.lines(server_dir .. '/ruby/lib/sonicpi/synths/synthinfo.rb') do
     table.insert(lines, line)
   end
 
-  return {
-    synths = parse_classes(lines),
-    sample_names = read_samples_from_ruby(),
-  }
+  local synths = parse_classes(lines)
+  local sample_names = read_samples(lines)
+
+  return synths, sample_names
 end
 
 local known_keywords = {
@@ -644,7 +600,7 @@ local function read_lang_from_file(file_path)
   for _, line in ipairs(lines) do
     local match = line:match('^%s*def%s+([^%s(%[]+)')
     if match then
-      if has_value(known_keywords, match) then
+      if M.has_value(known_keywords, match) then
         last_keyword = match
         doc[last_keyword] = { vim.trim(line) }
       else
@@ -810,12 +766,21 @@ local function parse_doc(keyword, doc, default_play_opts)
   return parsed
 end
 
-M.read_default_play_opts = function()
+M.read_default_play_opts = function(server_dir)
+  if not server_dir then
+    vim.notify('No server directory specified', 'error')
+    return {}
+  end
+  if vim.fn.isdirectory(server_dir) == 0 then
+    vim.notify('Server directory "' .. server_dir .. '" does not exist', 'error')
+    return {}
+  end
+
   local result = {}
 
   local start_found = false
   local opts = {}
-  for line in io.lines('/opt/sonic-pi/app/server/ruby/lib/sonicpi/lang/sound.rb') do
+  for line in io.lines(server_dir .. '/ruby/lib/sonicpi/lang/sound.rb') do
     if line:match('DEFAULT_PLAY_OPTS') then
       start_found = true
     elseif start_found then
@@ -838,12 +803,22 @@ M.read_default_play_opts = function()
   return result
 end
 
-M.read_lang_from_sonic_pi = function()
-  local default_play_opts = M.read_default_play_opts()
-  local core = read_lang_from_file('/opt/sonic-pi/app/server/ruby/lib/sonicpi/lang/core.rb')
-  local sound = read_lang_from_file('/opt/sonic-pi/app/server/ruby/lib/sonicpi/lang/sound.rb')
-  local wt = read_lang_from_file('/opt/sonic-pi/app/server/ruby/lib/sonicpi/lang/western_theory.rb')
-  local midi = read_lang_from_file('/opt/sonic-pi/app/server/ruby/lib/sonicpi/lang/midi.rb')
+M.read_lang_from_sonic_pi = function(server_dir)
+  if not server_dir then
+    vim.notify('No server directory specified', 'error')
+    return {}
+  end
+  if vim.fn.isdirectory(server_dir) == 0 then
+    vim.notify('Server directory "' .. server_dir .. '" does not exist', 'error')
+    return {}
+  end
+
+  local lang_dir = server_dir .. '/ruby/lib/sonicpi/lang'
+  local default_play_opts = M.read_default_play_opts(server_dir)
+  local core = read_lang_from_file(lang_dir .. '/core.rb')
+  local sound = read_lang_from_file(lang_dir .. '/sound.rb')
+  local wt = read_lang_from_file(lang_dir .. '/western_theory.rb')
+  local midi = read_lang_from_file(lang_dir .. '/midi.rb')
 
   local doc = {}
   for k, v in pairs(core) do
@@ -868,88 +843,6 @@ M.read_lang_from_sonic_pi = function()
   end
 
   return lang
-end
-
-M.get_completion_context = function(line)
-  local keywords = require('cmp-sonicpi.keywords')
-  local words = lexer.get_words(line)
-  local context = lexer.get_context(words)
-  local last = context.last_word
-  local first = context.first_word
-  if
-    last == 'sample'
-    or last == 'sample_info'
-    or last == 'sample_duration'
-    or last == 'use_sample_bpm'
-    or last == 'sample_buffer'
-    or last == 'sample_loaded?'
-    or last == 'load_sample'
-    or last == 'load_samples'
-  then
-    return { context_type = 'Sample', list = keywords.sample_names }
-  elseif last == 'sync' or last == 'sync:' or last == 'cue' or last == 'get' or last == 'get[' or last == 'set' then
-    return { context_type = 'CuePath' }
-  elseif last == 'with_fx' then
-    return { context_type = 'FX', list = keywords.fx }
-  elseif last == 'with_synth' or last == 'use_synth' or last == 'synth' then
-    return { context_type = 'Synth', list = keywords.synths }
-  elseif last == 'load_example' then
-    return { context_type = 'Examples', list = keywords.example_names }
-  elseif last == 'use_random_source' or last == 'with_random_source' then
-    return { context_type = 'RandomSource', list = keywords.random_sources }
-  elseif context.second_to_last_word == 'scale' then
-    return { context_type = 'Scale', list = keywords.scales }
-  elseif first == 'chord' and last ~= 'chord' and context.second_to_last_word ~= 'chord' then
-    return { context_type = 'Chord', list = keywords.chords }
-  elseif last == 'use_tuning' or last == 'with_tuning' then
-    return { context_type = 'Tuning', list = keywords.tunings }
-  elseif #words >= 2 and first == 'with_fx' then
-    if not last:match('.*:$') then
-      if keywords.fx_params[context.second_word] then
-        return { context_type = 'FXParam', list = keywords.fx_params[context.second_word] }
-      end
-    end
-  elseif #words >= 2 and first == 'synth' then
-    if not last:match('.*:$') then
-      if keywords.synths[context.second_word] then
-        return { context_type = 'SynthParam', list = keywords.synths[context.second_word].args }
-      end
-    end
-  elseif #words >= 2 and first == 'play' then
-    if not last:match('.*:$') then
-      return { context_type = 'PlayParam', list = keywords.play_params }
-    end
-  elseif #words >= 2 and first == 'sample' then
-    if not last:match('.*:$') then
-      return { context_type = 'SampleParam', list = keywords.sample_params.sample }
-    end
-  elseif first == 'use_sample_defaults' or first == 'with_sample_defaults' then
-    if not last:match('.*:$') then
-      return { context_type = 'SampleParam', list = keywords.sample_params[context.first_word] }
-    end
-  elseif
-    first
-    and (first == 'midi' or first:match('^midi_') or first == 'use_midi_defaults' or first == 'with_midi_defaults')
-    and last == 'port:'
-  then
-    return {
-      context_type = 'MidiOuts',
-      list = { --[[ TODO: Get Midi out ports per OSC ]]
-      },
-    }
-  elseif #words >= 2 and first == 'midi' then
-    if not last:match('.*:$') then
-      return { context_type = 'MidiParam', list = keywords.midi_params }
-    end
-  elseif
-    keywords.lang[first]
-    and keywords.lang[first].opts
-    and (keywords.lang[first].args == nil or #words >= length(keywords.lang[first].args))
-  then
-    return { context_type = 'LangParam', list = keywords.lang[first].opts }
-  elseif #words <= 1 or last == '=' then
-    return { context_type = 'Keyword', list = keywords.lang }
-  end
 end
 
 return M

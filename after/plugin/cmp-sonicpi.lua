@@ -1,5 +1,3 @@
-require('cmp-sonicpi').setup()
-
 local ok, icons = pcall(require, 'nvim-web-devicons')
 if ok then
   icons.set_icon({

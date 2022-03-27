@@ -1,3 +1,4 @@
+print('lexer.lua called')
 local M = {}
 
 local autoCompletionWordSeparators = '[%s,(){}]'

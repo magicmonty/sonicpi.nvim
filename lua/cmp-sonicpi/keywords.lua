@@ -1,13 +1,4 @@
-local util = require('cmp-sonicpi.util')
-
-local opts = util.read_synths_from_file()
-
-local M = {
-  synths = opts.synths,
-  sample_names = opts.sample_names,
-  lang = util.read_lang_from_sonic_pi(),
-  play_params = util.read_default_play_opts(),
-}
+local M = {}
 
 M.scales = {
   ':acem_asiran',
@@ -235,23 +226,6 @@ M.chords = {
   "'m7b5'",
   "'m7-5'",
 }
-
-M.sample_params = {
-  sample = {},
-  sample_duration = M.lang['sample_duration'].opts,
-  use_sample_bpm = M.lang['use_sample_bpm'].opts,
-}
-
-for name, doc in pairs(M.lang['sample'].opts) do
-  name = name:match('[^:]+')
-  if name and not name:match('\\') then
-    M.sample_params.sample[name] = doc
-  end
-end
-
-M.sample_params.use_sample_defaults = M.sample_params.sample
-M.sample_params.with_sample_defaults = M.sample_params.sample
-M.sample_params.with_sample_bpm = M.sample_params.use_sample_bpm
 
 M.tunings = {
   ':equal',
