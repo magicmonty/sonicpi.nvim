@@ -55,5 +55,16 @@ require('cmp').setup({
 })
 ```
 
+### Luasnip
+This plugin has support for Luasnip. If you have luasnip istalled, then a selection of predefined snippets will be available.
+
+Currently the following snippets are available:
+- `clocks` -> makes a live loop, which acts as a selection of clocks where you can synchronize to
+- `ll` -> makes a live loop
+- `llc` -> makes a live loop, which synchronizes to a specific clock cue
+- `bd` -> makes a live loop with a four on the floor base drum pattern
+- `fx` -> makes a generic `with_fx` block
+- `echo` -> makes a `with_fx` block with echo settings
+- `reverb` -> makes a `with_fx` block with reverb settings
 
 [nvim-cmp]: https://github.com/hrs7th/nvim-cmp

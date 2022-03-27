@@ -17,17 +17,6 @@ M.has_value = function(tab, val)
   return false
 end
 
-local function split(inputstr, sep)
-  if sep == nil then
-    sep = '%s'
-  end
-  local t = {}
-  for str in string.gmatch(inputstr, '([^' .. sep .. ']+)') do
-    table.insert(t, str)
-  end
-  return t
-end
-
 local function parse_arg_info(member)
   local result = {}
 
@@ -159,36 +148,29 @@ local function clean_classes(classes)
   local results = {}
   for class_name, class in pairs(classes) do
     local cleaned_members = {}
-    local has_members = false
     for member_name, member in pairs(class.members) do
       if member_name == 'doc' then
         local value = vim.trim(table.concat(member, '\n')):match('"(.*)"')
         cleaned_members.doc = value
-        has_members = true
       end
       if member_name == 'synth_name' then
         cleaned_members.synth_name = vim.trim(table.concat(member, '\n')):match('"(.*)"')
-        has_members = true
       end
       if member_name == 'name' then
         cleaned_members.name = vim.trim(table.concat(member, '\n')):match('"(.*)"')
-        has_members = true
       end
       if member_name == 'arg_defaults' then
-        has_members = true
         local value = vim.trim(table.concat(member, '\n')):match('{(.*)}')
         value = value:gsub('%s', '')
         cleaned_members.args = {}
-        for _, v in ipairs(split(value, ',')) do
+        for _, v in ipairs(vim.split(value, ',', true)) do
           table.insert(cleaned_members.args, v:match(':([^:=>]+)=>'))
         end
       end
       if member_name == 'specific_arg_info' then
-        has_members = true
         cleaned_members.specific_arg_info = parse_arg_info(member)
       end
       if member_name == 'default_arg_info' then
-        has_members = true
         cleaned_members.default_arg_info = parse_arg_info(member)
       end
     end
@@ -202,7 +184,7 @@ local function clean_classes(classes)
   end
 
   local cleaned_results = {}
-  for class_name, class in pairs(results) do
+  for _, class in pairs(results) do
     local args = get_args_from_base_classes(class, results)
     local arg_infos = get_arg_info(class, results)
     local new_args = {}
@@ -300,7 +282,7 @@ local function read_samples(lines)
 
   for s in sample_section:gsub('%s', ''):gmatch(':samples=>%[([^%[%]]+)%]') do
     if s ~= nil then
-      for _, sa in ipairs(split(s, ',')) do
+      for _, sa in ipairs(vim.split(s, ',', true)) do
         if sa ~= nil then
           table.insert(samples, sa)
         end
@@ -563,30 +545,6 @@ local known_keywords = {
   'with_tuning',
 }
 
-local function get_keyword_info(keyword, lines)
-  local function_found = false
-  local doc_found = false
-  local doc_lines = {}
-
-  for _, line in ipairs(lines) do
-    local match = line:match('^%s* def%s*' .. keyword .. '[(%[%s].*$')
-    if match then
-      function_found = true
-    elseif function_found and line:match('^%s*doc%s*') then
-      doc_found = true
-      table.insert(doc_lines, line)
-    elseif function_found and line:match('^*s* def%s') then
-      function_found = false
-      doc_found = false
-      break
-    elseif function_found and doc_found then
-      table.insert(doc_lines, line)
-    end
-  end
-
-  return doc_lines
-end
-
 local function read_lang_from_file(file_path)
   local lines = {}
   for line in io.lines(file_path) do
@@ -677,7 +635,7 @@ local function parse_opts(line, default_play_opts)
   return nil
 end
 
-local function parse_doc(keyword, doc, default_play_opts)
+local function parse_doc(doc, default_play_opts)
   if not doc then
     return {}
   end
@@ -687,7 +645,7 @@ local function parse_doc(keyword, doc, default_play_opts)
   local current_section = nil
   local is_example_section = false
   local opts_started = false
-  for i, line in ipairs(doc) do
+  for _, line in ipairs(doc) do
     local match = line:match('^(%w[^:]+):')
     if match and not is_example_section and not opts_started then
       current_section = match
@@ -839,7 +797,7 @@ M.read_lang_from_sonic_pi = function(server_dir)
 
   local lang = {}
   for _, k in ipairs(known_keywords) do
-    lang[k] = parse_doc(k, doc[k], default_play_opts)
+    lang[k] = parse_doc(doc[k], default_play_opts)
   end
 
   return lang
