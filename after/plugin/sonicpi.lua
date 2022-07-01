@@ -12,3 +12,4 @@ local has_luasnip, luasnip = pcall(require, 'luasnip')
 if has_luasnip then
   luasnip.add_snippets('sonicpi', require('sonicpi.snippets'))
 end
+
