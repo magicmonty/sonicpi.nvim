@@ -1,6 +1,4 @@
-local M = {
-  opts = {},
-}
+local M = {}
 
 local function find_sonic_pi_server_dir()
   local known_paths = {
@@ -22,16 +20,17 @@ end
 
 M.setup = function(opts)
   local server_dir = opts.server_dir or find_sonic_pi_server_dir()
+  local options = {}
 
   if server_dir ~= nil and vim.trim(server_dir) ~= '' then
-    M.opts.server_dir = vim.trim(server_dir)
+    options.server_dir = vim.trim(server_dir)
 
-    if vim.fn.isdirectory(M.opts.server_dir) == 1 then
+    if vim.fn.isdirectory(options.server_dir) == 1 then
       local util = require('cmp-sonicpi.util')
       local fixed_keywords = require('cmp-sonicpi.keywords')
-      local synths, sample_names = util.read_synths_and_sample_names(M.opts.server_dir)
-      local play_params = util.read_default_play_opts(M.opts.server_dir)
-      local lang = util.read_lang_from_sonic_pi(M.opts.server_dir)
+      local synths, sample_names = util.read_synths_and_sample_names(options.server_dir)
+      local play_params = util.read_default_play_opts(options.server_dir)
+      local lang = util.read_lang_from_sonic_pi(options.server_dir)
 
       local keywords = {
         synths = synths,
@@ -65,11 +64,14 @@ M.setup = function(opts)
       keywords.sample_params.with_sample_defaults = keywords.sample_params.sample
       keywords.sample_params.with_sample_bpm = keywords.sample_params.use_sample_bpm
 
-      M.opts.keywords = keywords
+      options.keywords = keywords
 
       require('cmp-sonicpi').setup()
     end
   end
+
+  M.opts = options
+  vim.schedule(function() vim.g.sonic_pi_opts = M.opts end)
 end
 
 M.lsp_on_init = function(client, opts)

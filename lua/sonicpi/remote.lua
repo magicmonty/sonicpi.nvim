@@ -1,87 +1,62 @@
+local Job = require('plenary.job')
+local osc = require('sonicpi.osc')
+
 local M = {}
-local function get_ports()
-  if M.ports then
-    return M.ports
-  end
-  local lines = io.lines(vim.fn.expand('~/.sonic-pi/log/daemon.log'))
 
-  for line in lines do
-    local match = line:match('(%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (-?%d+)')
-    if match then
-      local daemon, spider_to_gui, gui_to_spider, scsynth, osc_cues, tau, phx, token = line:match(
-        '(%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (-?%d+)'
-      )
+local function parse_ports(line)
+  local match = line:match('(%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (-?%d+)')
+  if match then
+    local daemon, spider_to_gui, gui_to_spider, scsynth, osc_cues, tau, phx, token = line:match(
+      '(%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (-?%d+)'
+    )
 
-      M.ports = {
-        daemon = tonumber(daemon),
-        gui = tonumber(spider_to_gui),
-        spider = tonumber(gui_to_spider),
-        scsynth = tonumber(scsynth),
-        osc_cues = tonumber(osc_cues),
-        tau = tonumber(tau),
-        phx = tonumber(phx),
-        token = tonumber(token),
-      }
-
-      break
-    end
+    return {
+      daemon = tonumber(daemon),
+      gui = tonumber(spider_to_gui),
+      spider = tonumber(gui_to_spider),
+      scsynth = tonumber(scsynth),
+      osc_cues = tonumber(osc_cues),
+      tau = tonumber(tau),
+      phx = tonumber(phx),
+      token = tonumber(token),
+    }
   end
 
-  return M.ports
+  return nil
 end
 
--- makes a null padded string rounded up to the nearest
--- multiple of 4
-local function encode(s)
-  local len = #s
-  local pad = 4 - (len % 4)
-  if pad == 4 then
-    pad = 0
+M.send_message = function(address, message, port)
+  local ports = vim.g.sonic_pi_ports
+
+  if not ports then
+    vim.notify('Unknown ports')
+    return
   end
-  return s .. string.rep('\0', pad)
+
+  if not port then
+    port = ports.spider
+  end
+
+  osc.send('127.0.0.1', port, address, { ports.token, message })
 end
 
--- converts an integer into it's 32bit big endian binary representation
-local function pack(n)
-  if n > 2147483647 then
-    error(n .. ' is too large', 2)
-  end
-  if n < -2147483648 then
-    error(n .. ' is too small', 2)
-  end
-  -- adjust for 2's complement
-  n = (n < 0) and (4294967296 + n) or n
-  return string.char(unpack({
-    (math.modf(n / 16777216)) % 256,
-    (math.modf(n / 65536)) % 256,
-    (math.modf(n / 256)) % 256,
-    n % 256,
-  }))
-end
+M.send_token = function(address, port)
+  local ports = vim.g.sonic_pi_ports
 
-local function send_osc(address, message)
-  local ports = get_ports()
-
-  address = encode(address)
-  if message then
-    message = encode(message)
+  if not ports then
+    vim.notify('Unknown ports')
+    return
   end
 
-  local tags = message and encode(',is') or encode(',i')
+  if not port then
+    port = ports.spider
+  end
 
-  local token = pack(ports.token)
-
-  local uv = require('luv')
-  local host = '127.0.0.1'
-  local client = uv.new_udp()
-
-  local send_data = message and address .. tags .. token .. message or address .. tags .. token
-
-  uv.udp_send(client, send_data, host, ports.spider)
+  osc.send('127.0.0.1', port, address, { ports.token })
 end
 
 M.run_code = function(code)
-  send_osc('/run-code', code)
+  M.send_message('/run-code', code)
 end
 
 M.run_buffer = function(bufnr)
@@ -91,7 +66,98 @@ M.run_buffer = function(bufnr)
 end
 
 M.stop = function()
-  send_osc('/stop-all-jobs')
+  M.send_token('/stop-all-jobs')
+end
+
+M.clear_variables = function()
+  vim.schedule(function()
+    vim.g.stop_sonic_pi_server = nil
+    vim.g.sonic_pi_server_started = nil
+    vim.g.sonic_pi_ports = nil
+  end)
+end
+
+M.send_keepalive = function(port)
+  if
+    not vim.g.sonic_pi_server_started == 1
+    or not port
+    or vim.g.stop_sonic_pi_server == 1
+    or not vim.g.sonic_pi_ports
+  then
+    vim.notify('Keep-alive stopped')
+    return
+  end
+
+  M.send_token('/daemon/keep-alive', port)
+
+  vim.defer_fn(function()
+    M.send_keepalive(port)
+  end, 2000)
+end
+
+M.startServer = function()
+  if vim.g.sonic_pi_server_started == 1 then
+    vim.notify('Server already running')
+    return
+  end
+
+  local server_dir = (vim.g.sonic_pi_opts and vim.g.sonic_pi_opts.server_dir) .. '/ruby/bin'
+
+  if not vim.fn.isdirectory(server_dir) then
+    vim.notify('Could not find server directory:\n' .. server_dir)
+    return
+  end
+
+  Job
+    :new({
+      command = 'ruby',
+      args = { 'daemon.rb' },
+      cwd = server_dir,
+      on_exit = function(j, return_val)
+        vim.notify('SonicPi Daemon stopped with code ' .. return_val)
+        M.clear_variables()
+      end,
+      on_stdout = function(_, data)
+        if vim.g.sonic_pi_server_started == 1 then
+          return
+        end
+
+        local ports = parse_ports(data)
+        if ports then
+          vim.g.sonic_pi_ports = ports
+          vim.notify('Daemon started')
+          vim.schedule(function()
+            vim.g.sonic_pi_server_started = 1
+            M.send_keepalive(ports.daemon)
+          end)
+        else
+          vim.notify('Could not determine ports')
+        end
+      end,
+    })
+    :start()
+end
+
+M.sendKillswitch = function()
+  if not vim.g.sonic_pi_ports then
+    vim.notify('Ports not set')
+    return
+  end
+  M.send_token('/daemon/exit', vim.g.sonic_pi_ports.daemon)
+end
+
+M.stopServer = function()
+  if not vim.g.sonic_pi_server_started then
+    vim.notify('Server already stopped')
+    return
+  end
+
+  vim.schedule(function()
+    vim.g.stop_sonic_pi_server = 1
+  end)
+
+  vim.notify('Stopping daemon ...')
+  M.sendKillswitch()
 end
 
 return M
