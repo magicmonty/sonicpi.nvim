@@ -161,6 +161,7 @@ M.decode = function(data)
   local address = ''
   address, bytes = read_string(bytes)
   assert(string.char(address:byte(1)) == '/', 'Invalid address')
+  address_raw = address
   address = vim.split(address:sub(2), '/')
 
   local tags = ''
@@ -187,7 +188,7 @@ M.decode = function(data)
     end
   end
 
-  return { address = address, data = entries }
+  return { address = address, address_raw = address_raw, data = entries }
 end
 
 return M

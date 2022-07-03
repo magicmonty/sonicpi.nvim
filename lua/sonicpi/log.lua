@@ -35,7 +35,7 @@ end
 
 local function create_server(port, on_connect)
   local server = uv.new_udp()
-  uv.udp_bind(server, '127.0.0.1', port)
+  uv.udp_bind(server, '0.0.0.0', port)
   on_connect(server)
   return server
 end
@@ -88,24 +88,64 @@ local function log_log(message, config)
     return
   end
 
-  local log_message = #message.data == 2 and message.data[2] or nil
+  local log_message = ''
+  local style = 0
+  local is_multi_message = false
+
+  if message.address[2] == 'multi_message' then
+    local run = message.data[1]
+    local time = message.data[3]
+    local thread = message.data[2]
+    local synth = message.data[6]
+
+    log_message = '{run: ' .. run .. ', time: ' .. time .. ', thread: ' .. thread .. '}\n└─ ' .. synth
+    is_multi_message = true
+    style = 0
+  elseif #message.data == 2 then
+    style = message.data[1]
+    log_message = message.data[2]
+  else
+    vim.notify(vim.inspect(message))
+    return
+  end
 
   if not log_message then
     return
   end
 
   local log_line_count = 0
-  for i, line in ipairs(vim.split(log_message, '\n')) do
+  for i, line in ipairs(vim.split(log_message .. '\n', '\n')) do
     log_line_count = log_line_count + 1
-    if i == 1 then
+    if i == 1 and not is_multi_message then
       line = '=> ' .. line
     end
     api.nvim_buf_set_lines(buffer, -1, -1, false, { line })
-    if message.data[1] == 1 then
+    if style == 1 then
       api.nvim_buf_add_highlight(buffer, -1, 'SonicPiLogMessageAlternate', api.nvim_buf_line_count(buffer) - 1, 0, -1)
     else
       api.nvim_buf_add_highlight(buffer, -1, 'SonicPiLogMessage', api.nvim_buf_line_count(buffer) - 1, 0, -1)
     end
+  end
+
+  api.nvim_buf_set_option(buffer, 'modified', false)
+  if window and api.nvim_win_is_valid(window) then
+    local line_count = api.nvim_buf_line_count(buffer)
+    api.nvim_win_set_cursor(window, { line_count, 0 })
+  end
+end
+
+local function log_other(message, config)
+  local buffer = config and config.buffer or nil
+  local window = config and config.window or nil
+  if not buffer or not api.nvim_buf_is_valid(buffer) then
+    return
+  end
+
+  if message.address_raw == '/exited' then
+    api.nvim_buf_set_lines(buffer, -1, -1, false, { '=> Daemon stopped' })
+    api.nvim_buf_add_highlight(buffer, -1, 'SonicPiLogMessageAlternate', api.nvim_buf_line_count(buffer) - 1, 0, -1)
+  else
+    return
   end
 
   api.nvim_buf_set_option(buffer, 'modified', false)
@@ -279,16 +319,14 @@ M.init = function(ports)
             if not M.check_buffers() then
               return
             end
-
             if chunk then
               local data = osc.decode(chunk)
-              if not data then
-                return
-              end
               if data.address[1] == 'log' then
                 log_log(data, M.log)
               elseif data.address[1] == 'incoming' and data.address[2] == 'osc' then
                 log_cue(data.data, M.cue)
+              else
+                log_other(data, M.log)
               end
             end
           end)
