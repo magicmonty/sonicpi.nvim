@@ -67,4 +67,127 @@ M.send = function(host, port, address, message)
   M.send_udp(host, port, M.encode(address) .. M.encodeMessage(message))
 end
 
+local function read_string(bytes)
+  if not bytes then
+    return nil, nil
+  end
+
+  local result = ''
+  local is_rest = false
+  local rest = {}
+  local count = #bytes
+
+  for i = 1, count, 1 do
+    local byte = bytes[i]
+    if is_rest then
+      table.insert(rest, byte)
+    elseif byte > 0 then
+      result = result .. string.char(byte)
+    elseif i % 4 == 0 then
+      is_rest = true
+    end
+  end
+
+  return result, rest
+end
+
+local function read_int(bytes)
+  if not bytes then
+    return nil, nil
+  end
+  local count = #bytes
+  if count < 4 then
+    return nil, nil
+  end
+
+  local b = { bytes[1] * 16777216, bytes[2] * 65536, bytes[3] * 256, bytes[4] }
+  local result = b[1] + b[2] + b[3] + b[4]
+  -- int is negative if bigger then 2147647
+  result = result < 21474648 and result or (result - 4294967296)
+  local rest = {}
+  if count > 4 then
+    for i = 5, #bytes, 1 do
+      table.insert(rest, bytes[i])
+    end
+  end
+  return result, rest
+end
+
+local function read_float(bytes)
+  if not bytes then
+    return nil, nil
+  end
+  local count = #bytes
+  if count < 4 then
+    return nil, nil
+  end
+
+  local result = 0.0
+  local b = { bytes[4], bytes[3], bytes[2], bytes[1] }
+  local sign = 1
+  local mantissa = b[3] % 128
+  for i = 2, 1, -1 do
+    mantissa = mantissa * 256 + b[i]
+  end
+  if b[4] > 127 then
+    sign = -1
+  end
+  local exponent = (b[4] % 128) * 2 + math.floor(b[3] / 128)
+  if exponent ~= 0 then
+    mantissa = (math.ldexp(mantissa, -23) + 1) * sign
+    result = math.ldexp(mantissa, exponent - 127)
+  end
+
+  local rest = {}
+  if count > 4 then
+    for i = 5, #bytes, 1 do
+      table.insert(rest, bytes[i])
+    end
+  end
+  return result, rest
+end
+
+local function as_bytes(data)
+  local bytes = {}
+  for i = 1, #data, 1 do
+    table.insert(bytes, string.byte(data, i))
+  end
+
+  return bytes
+end
+
+M.decode = function(data)
+  local bytes = as_bytes(data)
+  local address = ''
+  address, bytes = read_string(bytes)
+  assert(string.char(address:byte(1)) == '/', 'Invalid address')
+  address = vim.split(address:sub(2), '/')
+
+  local tags = ''
+  tags, bytes = read_string(bytes)
+  assert(string.char(tags:byte(1)) == ',', 'Invalid tags')
+  tags = tags:sub(2)
+
+  local entries = {}
+  local entry = nil
+  for i = 1, #tags, 1 do
+    local tag = string.char(tags:byte(i))
+    if tag == 's' then
+      entry, bytes = read_string(bytes)
+    elseif tag == 'i' then
+      entry, bytes = read_int(bytes)
+    elseif tag == 'f' then
+      entry, bytes = read_float(bytes)
+    else
+      return nil
+    end
+
+    if entry ~= nil then
+      table.insert(entries, entry)
+    end
+  end
+
+  return { address = address, data = entries }
+end
+
 return M

@@ -1,5 +1,6 @@
 local Job = require('plenary.job')
 local osc = require('sonicpi.osc')
+local log = require('sonicpi.log')
 
 local M = {}
 
@@ -85,6 +86,7 @@ M.send_keepalive = function(port)
     or not vim.g.sonic_pi_ports
   then
     vim.notify('Keep-alive stopped')
+    log.stopListening()
     return
   end
 
@@ -124,6 +126,9 @@ M.startServer = function()
 
         local ports = parse_ports(data)
         if ports then
+          vim.schedule(function()
+            log.init(ports)
+          end)
           vim.g.sonic_pi_ports = ports
           vim.notify('Daemon started')
           vim.schedule(function()
