@@ -24,6 +24,8 @@ M.setup = function(opts)
 
   vim.highlight.link('SonicPiLogMessage', 'Normal')
   vim.highlight.link('SonicPiLogMessageAlternate', 'Debug')
+  vim.highlight.link('SonicPiCueName', 'Normal')
+  vim.highlight.link('SonicPiCueValue', 'Constant')
 
   if server_dir ~= nil and vim.trim(server_dir) ~= '' then
     options.server_dir = vim.trim(server_dir)

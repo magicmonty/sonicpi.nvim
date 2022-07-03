@@ -66,11 +66,17 @@ local function log_cue(message, config)
     return
   end
 
-  api.nvim_buf_set_lines(buffer, -1, -1, false, { vim.inspect(message) })
+  local command = message[3]
+  local params = message[4]
+
+  api.nvim_buf_set_lines(buffer, -1, -1, false, { command .. '  ' .. params })
+  local line_count = api.nvim_buf_line_count(buffer)
+  api.nvim_buf_add_highlight(buffer, -1, 'SonicPiCueName', line_count - 1, 0, #command)
+  api.nvim_buf_add_highlight(buffer, -1, 'SonicPiCueValue', line_count - 1, #command + 2, -1)
+
   api.nvim_buf_set_option(buffer, 'modified', false)
 
   if window and api.nvim_win_is_valid(window) then
-    local line_count = api.nvim_buf_line_count(buffer)
     api.nvim_win_set_cursor(window, { line_count, 0 })
   end
 end
