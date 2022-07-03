@@ -30,7 +30,6 @@ M.send_message = function(address, message, port)
   local ports = vim.g.sonic_pi_ports
 
   if not ports then
-    vim.notify('Unknown ports')
     return
   end
 
@@ -45,7 +44,6 @@ M.send_token = function(address, port)
   local ports = vim.g.sonic_pi_ports
 
   if not ports then
-    vim.notify('Unknown ports')
     return
   end
 
@@ -85,8 +83,7 @@ M.send_keepalive = function(port)
     or vim.g.stop_sonic_pi_server == 1
     or not vim.g.sonic_pi_ports
   then
-    vim.notify('Keep-alive stopped')
-    log.stopListening()
+    log.stop_listening()
     return
   end
 
@@ -99,7 +96,6 @@ end
 
 M.startServer = function()
   if vim.g.sonic_pi_server_started == 1 then
-    vim.notify('Server already running')
     return
   end
 
@@ -115,7 +111,7 @@ M.startServer = function()
       command = 'ruby',
       args = { 'daemon.rb' },
       cwd = server_dir,
-      on_exit = function(j, return_val)
+      on_exit = function(_, return_val)
         vim.notify('SonicPi Daemon stopped with code ' .. return_val)
         M.clear_variables()
       end,
@@ -130,7 +126,6 @@ M.startServer = function()
             log.init(ports)
           end)
           vim.g.sonic_pi_ports = ports
-          vim.notify('Daemon started')
           vim.schedule(function()
             vim.g.sonic_pi_server_started = 1
             M.send_keepalive(ports.daemon)
@@ -145,7 +140,6 @@ end
 
 M.sendKillswitch = function()
   if not vim.g.sonic_pi_ports then
-    vim.notify('Ports not set')
     return
   end
   M.send_token('/daemon/exit', vim.g.sonic_pi_ports.daemon)
@@ -153,7 +147,6 @@ end
 
 M.stopServer = function()
   if not vim.g.sonic_pi_server_started then
-    vim.notify('Server already stopped')
     return
   end
 
@@ -161,7 +154,6 @@ M.stopServer = function()
     vim.g.stop_sonic_pi_server = 1
   end)
 
-  vim.notify('Stopping daemon ...')
   M.sendKillswitch()
 end
 

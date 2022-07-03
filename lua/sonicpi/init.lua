@@ -22,6 +22,9 @@ M.setup = function(opts)
   local server_dir = opts.server_dir or find_sonic_pi_server_dir()
   local options = {}
 
+  vim.highlight.link('SonicPiLogMessage', 'Normal')
+  vim.highlight.link('SonicPiLogMessageAlternate', 'Debug')
+
   if server_dir ~= nil and vim.trim(server_dir) ~= '' then
     options.server_dir = vim.trim(server_dir)
 
@@ -71,7 +74,9 @@ M.setup = function(opts)
   end
 
   M.opts = options
-  vim.schedule(function() vim.g.sonic_pi_opts = M.opts end)
+  vim.schedule(function()
+    vim.g.sonic_pi_opts = M.opts
+  end)
 end
 
 M.lsp_on_init = function(client, opts)
