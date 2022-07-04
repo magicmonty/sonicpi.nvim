@@ -134,6 +134,18 @@ local function log_log(message, config)
   end
 end
 
+local function log_error(message)
+  local msg = message.data[2]
+  msg = msg:gsub('&gt;', '>')
+  msg = msg:gsub('&lt;', '<')
+  msg = msg:gsub('&amp;', '&')
+  msg = msg:gsub('&#([0-9]+);', function(x)
+    return string.char(x)
+  end)
+
+  vim.notify(msg, vim.log.levels.ERROR)
+end
+
 local function log_other(message, config)
   local buffer = config and config.buffer or nil
   local window = config and config.window or nil
@@ -325,6 +337,8 @@ M.init = function(ports)
                 log_log(data, M.log)
               elseif data.address[1] == 'incoming' and data.address[2] == 'osc' then
                 log_cue(data.data, M.cue)
+              elseif data.address[1] == 'error' then
+                log_error(data)
               else
                 log_other(data, M.log)
               end
