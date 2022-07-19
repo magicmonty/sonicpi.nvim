@@ -1,10 +1,10 @@
 local M = {}
-local uv = require('luv')
+local uv = vim.loop
 
 M.send_udp = function(host, port, data)
   local client = uv.new_udp()
-
   uv.udp_send(client, data, host, port)
+  client:close()
 end
 
 -- makes a null padded string rounded up to the nearest
