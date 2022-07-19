@@ -75,6 +75,11 @@ M.setup = function(opts)
     end
   end
 
+  local has_treesitter, ts_parsers = pcall(require, 'nvim-treesitter.parsers')
+  if has_treesitter then
+    ts_parsers.filetype_to_parsername.sonicpi = 'ruby'
+  end
+
   M.opts = options
   vim.schedule(function()
     vim.g.sonic_pi_opts = M.opts
