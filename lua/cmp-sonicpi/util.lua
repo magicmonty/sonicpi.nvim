@@ -373,6 +373,7 @@ local known_keywords = {
   'kill',
   'knit',
   'line',
+  'link',
   'live_audio',
   'live_loop',
   'load_buffer',

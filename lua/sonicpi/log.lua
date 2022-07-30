@@ -190,13 +190,27 @@ local function close_log_window(config, force)
   return config
 end
 
-M.close_logs = function(force)
+M.hide_logs = function()
   if M.log then
-    M.log = close_log_window(M.log, force)
+    M.log = close_log_window(M.log, false)
   end
 
   if M.cue then
-    M.cue = close_log_window(M.cue, force)
+    M.cue = close_log_window(M.cue, false)
+  end
+
+  if not M.log and not M.cue then
+    M.stop_listening()
+  end
+end
+
+M.close_logs = function()
+  if M.log then
+    M.log = close_log_window(M.log, true)
+  end
+
+  if M.cue then
+    M.cue = close_log_window(M.cue, true)
   end
 
   if not M.log and not M.cue then
@@ -318,36 +332,44 @@ M.force_cue_window = function()
   api.nvim_set_current_win(current_window)
 end
 
-M.init = function(ports)
-  if ports.gui then
-    M.force_log_window()
-    M.force_cue_window()
-
-    if not M.log_server then
-      M.log_server = create_server(ports.gui, function(sock)
-        sock:recv_start(function(err, chunk)
-          assert(not err, err) -- Check for errors.
-          vim.schedule(function()
-            if not M.check_buffers() then
-              return
-            end
-            if chunk then
-              local data = osc.decode(chunk)
-              if data.address[1] == 'log' then
-                log_log(data, M.log)
-              elseif data.address[1] == 'incoming' and data.address[2] == 'osc' then
-                log_cue(data.data, M.cue)
-              elseif data.address[1] == 'error' then
-                log_error(data)
-              else
-                log_other(data, M.log)
-              end
-            end
-          end)
-        end)
-      end)
-    end
+M.init = function()
+  local gui_port = require('sonicpi.opts').remote.ports.gui
+  if not gui_port then
+    return
   end
+
+  M.force_log_window()
+  M.force_cue_window()
+
+  if M.log_server then
+    return
+  end
+
+  M.log_server = create_server(gui_port, function(sock)
+    sock:recv_start(function(err, chunk)
+      assert(not err, err) -- Check for errors.
+      vim.schedule(function()
+        if not M.check_buffers() or not chunk then
+          return
+        end
+
+        local data = osc.decode(chunk)
+        if not data then
+          return
+        end
+
+        if data.address[1] == 'log' then
+          log_log(data, M.log)
+        elseif data.address[1] == 'incoming' and data.address[2] == 'osc' then
+          log_cue(data.data, M.cue)
+        elseif data.address[1] == 'error' then
+          log_error(data)
+        else
+          log_other(data, M.log)
+        end
+      end)
+    end)
+  end)
 end
 
 return M

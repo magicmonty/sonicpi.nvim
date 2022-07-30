@@ -157,16 +157,19 @@ local function as_bytes(data)
 end
 
 M.decode = function(data)
+  ---@type table|nil
   local bytes = as_bytes(data)
+  ---@type string|nil
   local address = ''
   address, bytes = read_string(bytes)
-  assert(string.char(address:byte(1)) == '/', 'Invalid address')
-  address_raw = address
+  assert(address and string.char(address:byte(1)) == '/', 'Invalid address')
+  local address_raw = address
   address = vim.split(address:sub(2), '/')
 
+  ---@type string|nil
   local tags = ''
   tags, bytes = read_string(bytes)
-  assert(string.char(tags:byte(1)) == ',', 'Invalid tags')
+  assert(tags and string.char(tags:byte(1)) == ',', 'Invalid tags')
   tags = tags:sub(2)
 
   local entries = {}
