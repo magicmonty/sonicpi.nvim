@@ -108,14 +108,12 @@ Then you can use the LSP and completion engine including the snippets.
 
 ### Default Mappings
 
-+------+-------------+--------------------+
 | Mode | Key binding | Description        |
-|------+-------------+--------------------|
+|:----:|-------------|--------------------|
 |   n  | `<leader>r` | Run current buffer |
 |   n  | `<leader>s` | Stop execution     |
 |   i  | `<M-r>`     | Run current buffer |
 |   i  | `<M-s>`     | Stop execution     |
-+------+-------------+--------------------+
 
 
 [nvim-cmp]: https://github.com/hrs7th/nvim-cmp
