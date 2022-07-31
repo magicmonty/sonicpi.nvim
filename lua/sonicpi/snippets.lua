@@ -35,14 +35,14 @@ return {
     'bd',
     fmt(
       [[
-        live_loop :bd, sync: :clock1 do
+        live_loop :bd, sync: :clock{} do
           tick
           sample {} if spread({}, {}).look
           {}
           sleep 0.25
         end
       ]],
-      { i(1, ':bd_haus'), i(2, '4'), i(3, '16'), i(0) }
+      { i(1, '0'), i(2, ':bd_haus'), i(3, '4'), i(4, '16'), i(0) }
     )
   ),
 
@@ -78,7 +78,7 @@ return {
           sleep {}
         end
       ]],
-      { i(1), i(2, '1'), i(0), i(3, '1') }
+      { i(1), i(2, '0'), i(0), i(3, '1') }
     )
   ),
   s(
