@@ -2,6 +2,8 @@
 
 This is a neovim plugin for [Sonic Pi]
 
+![Screenshot](images/screenshot.png)
+
 ## Features
 
 This plugin is inspired by [sonicpi.vim](https://github.com/dermusikman/sonicpi.vim).
