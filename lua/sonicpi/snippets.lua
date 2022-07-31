@@ -9,7 +9,7 @@ return {
     fmt(
       [[
         live_loop :clock, auto_cue: false do
-          cue("clock" + (tick % 8).to_s).to_sym
+          cue(("clock" + (tick % 8).to_s).to_sym)
           sleep 1
         end
 
