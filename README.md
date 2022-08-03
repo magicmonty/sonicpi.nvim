@@ -65,6 +65,15 @@ local function on_init(client)
 end
 ```
 
+also you need to configure solargraph to accept single files with
+
+
+```
+single_file = true
+```
+
+in the solargraph settings for your LSP setup
+
 ### CMP setup
 
 If you want to use the completion engine, then you have to add the `sonicpi` source to your config:
