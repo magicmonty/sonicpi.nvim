@@ -8,7 +8,7 @@ return {
     'clocks',
     fmt(
       [[
-        live_loop :clock, auto_cue: false do
+        live_loop :clock, auto_cue: false, delay: 0.01 do
           cue(("clock" + (tick % 8).to_s).to_sym)
           sleep 1
         end
