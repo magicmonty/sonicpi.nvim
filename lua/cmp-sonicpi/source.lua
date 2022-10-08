@@ -211,6 +211,10 @@ local function get_completion_context(line)
         return { context_type = 'SynthParam', list = keywords.synths[context.second_word].args }
       end
     end
+  elseif first == 'use_synth_defaults' or first == 'with_synth_defaults' then
+    if last and not last:match('.*:$') then
+      return { context_type = 'SynthParam', list = keywords.synths['common_parameters'] }
+    end
   elseif #words >= 2 and first == 'play' then
     if last and not last:match('.*:$') then
       return { context_type = 'PlayParam', list = keywords.play_params }

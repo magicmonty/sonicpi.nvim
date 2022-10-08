@@ -32,7 +32,29 @@ M.setup_cmp = function()
   local play_params = util.read_default_play_opts(server_dir)
   local lang = util.read_lang_from_sonic_pi(server_dir)
 
+  local common_synth_args = {}
+
+  local count = 1
+  for _, value in pairs(synths) do
+    if count == 1 then
+      common_synth_args = value.args
+    else
+      for arg in pairs(common_synth_args) do
+        if not value.args[arg] then
+          common_synth_args[arg] = nil
+        end
+      end
+    end
+    count = count + 1
+  end
+
   keywords.synths = synths
+  keywords.synths['common_parameters'] = {}
+  for arg, desc in pairs(common_synth_args) do
+    if desc then
+      keywords.synths['common_parameters'][arg] = desc
+    end
+  end
   keywords.sample_names = sample_names
   keywords.play_params = play_params
   keywords.lang = lang
