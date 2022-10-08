@@ -146,27 +146,48 @@ local function get_samples(list)
   return result
 end
 
+local function is_sample_keyword(keyword)
+  return keyword == 'sample'
+      or keyword == 'sample_info'
+      or keyword == 'sample_duration'
+      or keyword == 'use_sample_bpm'
+      or keyword == 'sample_buffer'
+      or keyword == 'sample_loaded?'
+      or keyword == 'load_sample'
+      or keyword == 'load_samples'
+end
+
+local function is_cue_keyword(keyword)
+  return keyword == 'sync'
+      or keyword == 'sync:'
+      or keyword == 'cue'
+      or keyword == 'get'
+      or keyword == 'get['
+      or keyword == 'set'
+end
+
+local function is_synth_keyword(keyword)
+  return keyword == 'with_synth'
+      or keyword == 'use_synth'
+      or keyword == 'synth'
+end
+
 local function get_completion_context(line)
   local keywords = require('sonicpi.opts').cmp_source.keywords
   local words = lexer.get_words(line)
   local context = lexer.get_context(words)
   local last = context.last_word
   local first = context.first_word
-  if last == 'sample'
-      or last == 'sample_info'
-      or last == 'sample_duration'
-      or last == 'use_sample_bpm'
-      or last == 'sample_buffer'
-      or last == 'sample_loaded?'
-      or last == 'load_sample'
-      or last == 'load_samples'
+  if is_sample_keyword(last)
   then
     return { context_type = 'Sample', list = keywords.sample_names }
-  elseif last == 'sync' or last == 'sync:' or last == 'cue' or last == 'get' or last == 'get[' or last == 'set' then
+  elseif is_sample_keyword(first) and #words == 2 and not line:match(':[^,]*,.*$') then
+    return { context_type = 'Sample', list = keywords.sample_names }
+  elseif is_cue_keyword(last) then
     return { context_type = 'CuePath' }
   elseif last == 'with_fx' then
     return { context_type = 'FX', list = keywords.fx }
-  elseif last == 'with_synth' or last == 'use_synth' or last == 'synth' then
+  elseif is_synth_keyword(last) then
     return { context_type = 'Synth', list = keywords.synths }
   elseif last == 'load_example' then
     return { context_type = 'Examples', list = keywords.example_names }
@@ -233,7 +254,7 @@ end
 ---@param callback fun(response: lsp.CompletionResponse|nil)
 source.complete = function(_, params, callback)
   local result = {}
-  local line = params.context.cursor_line
+  local line = params.context.cursor_before_line
   local context = get_completion_context(line)
 
   if not context then
