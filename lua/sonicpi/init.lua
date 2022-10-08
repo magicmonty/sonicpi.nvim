@@ -89,10 +89,10 @@ M.setup = function(opts)
     return
   end
 
-  vim.highlight.link('SonicPiLogMessage', 'Normal')
-  vim.highlight.link('SonicPiLogMessageAlternate', 'Debug')
-  vim.highlight.link('SonicPiCueName', 'Normal')
-  vim.highlight.link('SonicPiCueValue', 'Constant')
+  vim.api.nvim_set_hl(0, 'SonicPiLogMessage', { link = 'Normal' })
+  vim.api.nvim_set_hl(0, 'SonicPiLogMessageAlternate', { link = 'Debug' })
+  vim.api.nvim_set_hl(0, 'SonicPiCueName', { link = 'Normal' })
+  vim.api.nvim_set_hl(0, 'SonicPiCueValue', { link = 'Constant' })
 
   local options = require('sonicpi.opts')
   options.server_dir = vim.trim(server_dir)
