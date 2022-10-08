@@ -175,7 +175,7 @@ end
 -- Searches for the last previous occurrence of a with_synth or use_synth command
 -- and returns the selected synth if found
 local function find_last_synth(cursor)
-  for i = cursor.line - 1, 1, -1 do
+  for i = cursor.line - 1, 0, -1 do
     local line = vim.api.nvim_buf_get_lines(0, i, i + 1, false)
     for m in string.gmatch(line[1], "%s*use_synth%s*(:[^:%s]+)") do
       return m
@@ -237,7 +237,18 @@ local function get_completion_context(line, cursor)
     end
   elseif #words >= 2 and first == 'play' then
     if last and not last:match('.*:$') then
-      return { context_type = 'PlayParam', list = keywords.play_params }
+
+      local synth = find_last_synth(cursor)
+      local synth_params = (synth and keywords.synths[synth].args) or keywords.synths['common_parameters']
+      local play_params = keywords.play_params
+
+      for param, descr in pairs(synth_params) do
+        if not play_params[param] then
+          play_params[param] = descr
+        end
+      end
+
+      return { context_type = 'PlayParam', list = play_params }
     end
   elseif #words >= 2 and first == 'sample' then
     if last and not last:match('.*:$') then
