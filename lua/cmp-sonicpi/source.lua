@@ -172,7 +172,22 @@ local function is_synth_keyword(keyword)
       or keyword == 'synth'
 end
 
-local function get_completion_context(line)
+-- Searches for the last previous occurrence of a with_synth or use_synth command
+-- and returns the selected synth if found
+local function find_last_synth(cursor)
+  for i = cursor.line - 1, 1, -1 do
+    local line = vim.api.nvim_buf_get_lines(0, i, i + 1, false)
+    for m in string.gmatch(line[1], "%s*use_synth%s*(:[^:%s]+)") do
+      return m
+    end
+
+    for m in string.gmatch(line[1], "%s*with_synth%s*(:[^:%s]+)") do
+      return m
+    end
+  end
+end
+
+local function get_completion_context(line, cursor)
   local keywords = require('sonicpi.opts').cmp_source.keywords
   local words = lexer.get_words(line)
   local context = lexer.get_context(words)
@@ -213,7 +228,12 @@ local function get_completion_context(line)
     end
   elseif first == 'use_synth_defaults' or first == 'with_synth_defaults' then
     if last and not last:match('.*:$') then
-      return { context_type = 'SynthParam', list = keywords.synths['common_parameters'] }
+      local synth = find_last_synth(cursor)
+      if not synth then
+        return { context_type = 'SynthParam', list = keywords.synths['common_parameters'] }
+      else
+        return { context_type = 'SynthParam', list = keywords.synths[synth].args or keywords.synths['common_parameters'] }
+      end
     end
   elseif #words >= 2 and first == 'play' then
     if last and not last:match('.*:$') then
@@ -259,7 +279,7 @@ end
 source.complete = function(_, params, callback)
   local result = {}
   local line = params.context.cursor_before_line
-  local context = get_completion_context(line)
+  local context = get_completion_context(line, params.context.cursor)
 
   if not context then
     return
