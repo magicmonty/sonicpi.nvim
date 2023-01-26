@@ -118,6 +118,7 @@ M.setup = function(opts)
 
   local options = require('sonicpi.opts')
   options.server_dir = vim.trim(server_dir)
+  options.lsp_diagnostics = opts.lsp_diagnostics
 
   M.setup_cmp()
   M.setup_treesitter()
@@ -131,9 +132,10 @@ M.lsp_on_init = function(client, opts)
   end
 
   if client.name == 'solargraph' and vim.api.nvim_buf_get_option(0, 'filetype') == 'sonicpi' then
+    local diagnostics = (opts and opts.lsp_diagnostics) or require('sonicpi.opts').lsp_diagnostics
     local cfg = client.config.settings.solargraph
     client.config.settings.single_file_support = true
-    cfg.diagnostics = false
+    cfg.dagnostics = diagnostics
     cfg.reporters = { 'typecheck', 'update_errors' }
 
     cfg.include = cfg.include or {}
