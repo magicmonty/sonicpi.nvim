@@ -30,7 +30,7 @@ use({
     require('sonicpi').setup()
   end,
   requires = {¬
-    'hrdh7th/nvim-cmp',
+    'hrsh7th/nvim-cmp',
     'kyazdani42/nvim-web-devicons'
   }
 })
