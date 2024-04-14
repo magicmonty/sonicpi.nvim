@@ -3,6 +3,7 @@ local default_mapping_opts = { noremap = true, silent = true, buffer = 0 }
 
 return {
   server_dir = '',
+  lsp_diagnostics = false,
   cmp_source = {
     keywords = {
       synths = {},
