@@ -79,9 +79,9 @@ M.setup_cmp = function()
 end
 
 M.setup_treesitter = function()
-  local has_treesitter, ts_parsers = pcall(require, 'nvim-treesitter.parsers')
+  local has_treesitter, _ = pcall(require, 'nvim-treesitter.parsers')
   if has_treesitter then
-    ts_parsers.filetype_to_parsername.sonicpi = 'ruby'
+    vim.treesitter.language.register('ruby', {'sonicpi'})
   end
 end
 
